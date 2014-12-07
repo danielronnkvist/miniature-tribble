@@ -13,3 +13,11 @@ Format them like this:
   ...
 }
 ```
+
+## Result
+
+Original:
+![original](./originals/870480482876627331_364714453.jpg)
+
+Output:
+![output](./outputs/870480482876627331_364714453.jpg)
