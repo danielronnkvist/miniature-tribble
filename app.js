@@ -2,6 +2,7 @@ var http = require('http');
 var https = require('https');
 var ig = require('instagram-node').instagram();
 var fs = require('fs');
+var gm = require('gm');
 
 var history = JSON.parse(fs.readFileSync('log.json', 'UTF-8'));
 
@@ -10,14 +11,6 @@ var instaConf = JSON.parse(fs.readFileSync('instagramconfig.json', 'UTF-8'));
 ig.use({
   client_id: instaConf.client_id,
   client_secret: instaConf.client_secret
-});
-
-// Require and initialize 6px
-var sixpxConf = JSON.parse(fs.readFileSync('6pxconfig.json', 'UTF-8'));
-var px = require('6px')({
-    userId: sixpxConf.user_id,
-    apiKey: sixpxConf.apiKey,
-    apiSecret: sixpxConf.apiSecret
 });
 
 ig.user_media_recent('364714453', { count: 1 }, function(err, medias, pagination, remaining, limit) {
@@ -50,7 +43,7 @@ ig.user_media_recent('364714453', { count: 1 }, function(err, medias, pagination
           process.exit(1);
         }
         console.log('Image fetched and saved');
-        sendToPx(imPath);
+        editImage(imPath);
       })
       history.push(medias[0].id);
       fs.writeFile('log.json', JSON.stringify(history), 'UTF-8', function(err){
@@ -64,62 +57,43 @@ ig.user_media_recent('364714453', { count: 1 }, function(err, medias, pagination
   });
 });
 
-function sendToPx(imPath)
+function editImage(imPath)
 {
-  px.on('connection', function(){
-    var image = px({ taxi: imPath });
-    var output = image.output({ taxi: 'greenToPink'})
-                      .tag('tryckbar')
-                      .url('6px')
-                      .filter({ colorize: { hex: '#FD80FF', strength: 50 } });
-
-    image.save().then(function(res) {
-      console.log("Image saved");
-      https.get(res.outputs.tryckbar.refs.taxi.location, function(res){
-        var imgData = "";
-        res.setEncoding('binary');
-
-        res.on('data', function(chunk){
-          imgData += chunk;
-        });
-
-        res.on('end', function(){
-          var imPath = './outputs/'+history[history.length-1]+'.jpg';
-          fs.writeFile(imPath, imgData, 'binary', function(err){
-            console.log('Image fetched and saved');
-            var twitterAPI = require('node-twitter-api');
-            var twitterConf = JSON.parse(fs.readFileSync('twitterconfig.json', 'UTF-8'));
-            var twitter = new twitterAPI({
-              consumerKey: twitterConf.consumer_key,
-              consumerSecret: twitterConf.consumer_secret,
-              callback: 'http://127.0.0.1:3000/callback'
-            });
-
-            twitter.statuses("update_with_media",
+  gm(imPath).modulate(150,50,100)
+            .colorize(0, 60, 0)
+            .write('./outputs/'+history[history.length-1]+'.jpg', function(err){
+              if(err)
               {
-                media: [
-                  imPath
-                ],
-                status: ""
-              },
-              twitterConf.acess_token,
-              twitterConf.acess_token_secret,
-              function(err, data, response){
-                if(err) {
-                  console.error(err);
-                  process.exit(1);
-                }else{
-                  console.log("Tweet done!");
-                  console.log(data);
-                  process.exit(0);
-                }
+                console.error("Error colorizing");
+                console.error(err);
+                process.exit(1)
+              }
+              var twitterAPI = require('node-twitter-api');
+              var twitterConf = JSON.parse(fs.readFileSync('twitterconfig.json', 'UTF-8'));
+              var twitter = new twitterAPI({
+                consumerKey: twitterConf.consumer_key,
+                consumerSecret: twitterConf.consumer_secret,
+                callback: 'http://127.0.0.1:3000/callback'
               });
-          });
-        });
-      });
-    }, function(err){
-      console.error(err);
-      process.exit(1);
-    });
-  });
+
+              twitter.statuses("update_with_media",
+                {
+                  media: [
+                    './outputs/'+history[history.length-1]+'.jpg'
+                  ],
+                  status: ""
+                },
+                twitterConf.acess_token,
+                twitterConf.acess_token_secret,
+                function(err, data, response){
+                  if(err) {
+                    console.error(err);
+                    process.exit(1);
+                  }else{
+                    console.log("Tweet done!");
+                    console.log(data);
+                    process.exit(0);
+                  }
+                });
+              });
 }

@@ -7,7 +7,7 @@
     "start": "node app.js"
   },
   "dependencies": {
-    "6px": "^0.1.6",
+    "gm": "^1.17.0",
     "instagram-node": "^0.5.2",
     "node-twitter-api": "^1.5.0"
   },
